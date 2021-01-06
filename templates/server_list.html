@@ -1,0 +1,53 @@
+{% extends 'layout.html' %}
+
+{% block title %}服务器列表 {% endblock %}
+{% block content %}
+    <div class="container">
+        <h1>服务器列表</h1>
+        {% csrf_token %}
+        <div>
+            <a style="margin: 10px 0;" href="{% url 'server_add' %}" class="btn btn-primary">添加</a>
+        </div>
+        <table class="table table-bordered">
+            <thead>
+                <th>ID</th>
+                <th>主机名</th>
+                <th>备注</th>
+                <th>操作</th>
+            </thead>
+            <tbody>
+            {% for obj in server_obj %}
+                <tr>
+                    <th>{{ obj.id }}</th>
+                    <th>{{ obj.hostname }}</th>
+                    <th>{{ obj.notices }}</th>
+                    <th><span><a href="{% url 'server_edit' pk=obj.id %}">编辑</a></span> <span><a onclick="removeRow(this,{{obj.id}});">删除</a></span></th>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+<script>
+    csrf = $("[name='csrfmiddlewaretoken']").val()
+    function removeRow(ths,rid){
+        var result = confirm("是否确定要删除?");
+        if(result){
+            $.ajax({
+                url: "/server/del/" + rid + "",
+                type: 'post',
+                data: { 'csrfmiddlewaretoken': csrf },
+                dataType: 'json',
+                success:function(res){
+                    if(res.status){
+                        $(ths).parent().parent().parent().remove();
+                    }
+                }
+
+            });
+
+
+        }
+    };
+</script>
+{% endblock %}
