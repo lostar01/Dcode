@@ -2,25 +2,18 @@ from django.shortcuts import render,redirect
 from django.http import JsonResponse
 from web.models import Server
 
-from django.forms import ModelForm
+from web.views.base import BootstrapModelForm
 
 # 为了做表单验证，引入ModelForm 的功能
 #1. 自动生成表单功能
 #2. 表单验证
-class ServerModelForm(ModelForm):
-    exclude_bootstrap = ['']
+class ServerModelForm(BootstrapModelForm):
+    # exclude_bootstrap = ['notices']
     class Meta:
         model = Server
         fields = "__all__"
+        # exclude = ['notices']
 
-    def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
-
-        #自定义功能
-        for k,field in self.fields.items():
-            if k in self.exclude_bootstrap:
-                continue
-            field.widget.attrs['class'] = 'form-control'
 
 
 def server_list(request):
@@ -28,6 +21,7 @@ def server_list(request):
     return render(request,'server_list.html',locals())
 
 def server_add(request):
+    title = "添加服务器"
     if request.method == 'GET':
         form = ServerModelForm()
     else:
@@ -39,9 +33,10 @@ def server_add(request):
             #跳转到服务器列表页面
             return redirect('server_list')
 
-    return render(request,'server_add.html',{"form": form})
+    return render(request,'form.html',{"form": form,"title":title})
 
 def server_edit(request,pk):
+    title = "编辑服务器"
     # server_obj = Server.objects.filter(pk=pk).first()
     server_obj = Server.objects.get(pk=pk)
     if request.method == 'GET':
@@ -51,7 +46,7 @@ def server_edit(request,pk):
         if form.is_valid():
             form.save()
             return redirect('server_list')
-    return render(request, 'server_edit.html', {"form": form})
+    return render(request, 'form.html', {"form": form,"title": title})
 
 def server_del(request,pk):
     status = False

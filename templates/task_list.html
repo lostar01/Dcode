@@ -1,0 +1,55 @@
+{% extends 'layout.html' %}
+
+{% block title %}{{title}} {% endblock %}
+{% block content %}
+    <div class="container">
+        <h1>{{title}}</h1>
+        {% csrf_token %}
+        <div>
+            <a style="margin: 10px 0;" href="{% url 'task_add' project_id=probj.id %}" class="btn btn-primary">添加</a>
+        </div>
+        <table class="table table-bordered">
+            <thead>
+                <th>ID</th>
+                <th>标识</th>
+                <th>版本</th>
+                <th>状态</th>
+                <th>操作</th>
+            </thead>
+            <tbody>
+            {% for obj in task_obj %}
+                <tr>
+                    <th>{{ obj.id }}</th>
+                    <th>{{ obj.uuid }}</th>
+                    <th>{{ obj.tag }}</th>
+                    <th>{{ obj.get_status_display }}</th>
+                    <th><span><a href="{% url 'task_edit' project_id=probj.id task_id=obj.id %}">编辑</a></span> <span><a onclick="removeRow(this,{{obj.id}});">删除</a></span></th>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+<script>
+    csrf = $("[name='csrfmiddlewaretoken']").val()
+    function removeRow(ths,rid){
+        var result = confirm("是否确定要删除?");
+        if(result){
+            $.ajax({
+                url: "/task/del/" + rid + "",
+                type: 'post',
+                data: { 'csrfmiddlewaretoken': csrf },
+                dataType: 'json',
+                success:function(res){
+                    if(res.status){
+                        $(ths).parent().parent().parent().remove();
+                    }
+                }
+
+            });
+
+
+        }
+    };
+</script>
+{% endblock %}
