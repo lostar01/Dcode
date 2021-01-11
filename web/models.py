@@ -47,3 +47,18 @@ class DeployTask(models.Model):
     after_download_script = models.TextField(verbose_name="下载后脚本",null=True,blank=True)
     before_deploy_script = models.TextField(verbose_name="发布前脚本",null=True,blank=True)
     after_deploy_script = models.TextField(verbose_name="发布后脚本",null=True,blank=True)
+
+
+class HookTemplate(models.Model):
+    """
+    钩子模板
+    """
+    title = models.CharField(verbose_name="标题",max_length=32)
+    content = models.TextField(verbose_name="脚本内容")
+    hook_choice = (
+        (2,'下载前'),
+        (4,'下载后'),
+        (6,'发布前'),
+        (8,'发布后')
+    )
+    hook_type = models.SmallIntegerField(verbose_name="钩子类型",choices=hook_choice)
