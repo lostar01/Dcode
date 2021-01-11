@@ -1,0 +1,131 @@
+{% extends 'layout.html' %}
+{% block title %}{{ title }} {% endblock %}
+{% block css %}
+
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    <table class="table table-bordered">
+        <tr>
+            <td>项目名称:{{probj.title}}</td>
+            <td>环境:{{probj.get_env_display}}</td>
+        </tr>
+        <tr>
+            <td colspan="2">仓库地址：{{probj.repo}}</td>
+        </tr>
+        <tr>
+            <td>关联服务器:
+                {% for server_obj in probj.server.all %}
+                <span style="border: 1px solid #ddd; padding: 5px;">{{ server_obj.hostname }}</span>
+                {% endfor %}
+            </td>
+            <td colspan="2">线上路径:{{probj.path}}</td>
+        </tr>
+
+    </table>
+    <div class="panel panel-default">
+        <div class="panel-heading"><span class="glyphicon glyphicon-cog" aria-hidden="true"></span><span
+                style="padding: 5px;">基础配置</span></div>
+        <div class="panel-body">
+            <div class="form-horizontal">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">{{ form.tag.label }}</label>
+                    <div class="col-sm-10">
+                        {{ form.tag }}
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="panel panel-default">
+        <div class="panel-heading"><span class="glyphicon glyphicon-gift" aria-hidden="true"></span>
+            <span style="padding: 5px;">发布流程 & 钩子</span></div>
+        <div class="panel-body">
+            <div class="outline">
+                <div class="seriers">
+                    <div class="module clearfix">
+                        <div class="item left">
+                            <div class="line">
+                                <hr>
+                            </div>
+                            <div class="icon">
+                                <span class="glyphicon glyphicon-record" aria-hidden="true"></span>
+                                <a class="down">01 开始</a>
+                            </div>
+                        </div>
+                        <div class="item left">
+                            <div class="line">
+                                <hr>
+                            </div>
+                            <div class="icon">
+                                <span class="glyphicon glyphicon-record" aria-hidden="true"></span>
+                                <a class="up">02 下载前</a>
+                            </div>
+                        </div>
+                        <div class="item left">
+                            <div class="line">
+                                <hr>
+                            </div>
+                            <div class="icon">
+                                <span class="glyphicon glyphicon-record" aria-hidden="true"></span>
+                                <a class="down">03 下载代码</a>
+                            </div>
+                        </div>
+                        <div class="item left">
+                            <div class="line">
+                                <hr>
+                            </div>
+                            <div class="icon">
+                                <span class="glyphicon glyphicon-record" aria-hidden="true"></span>
+                                <a class="down">04 下载后</a>
+                            </div>
+                        </div>
+                        <div class="item left">
+                            <div class="line">
+                                <hr>
+                            </div>
+                            <div class="icon">
+                                <span class="glyphicon glyphicon-record" aria-hidden="true"></span>
+                                <a class="down">05 打包上传</a>
+                            </div>
+                        </div>
+                        <div class="item left">
+                            <div class="line">
+                                <hr>
+                            </div>
+                            <div class="icon">
+                                <span class="glyphicon glyphicon-record" aria-hidden="true"></span>
+                                <a class="down">06 发布前</a>
+                            </div>
+                        </div>
+                        <div class="item left">
+                            <div class="line">
+                                <hr>
+                            </div>
+                            <div class="icon">
+                                <span class="glyphicon glyphicon-record" aria-hidden="true"></span>
+                                <a class="down">07 发布</a>
+                            </div>
+                        </div>
+                        <div class="item left">
+                            <div class="line">
+                                <hr>
+                            </div>
+                            <div class="icon">
+                                <span class="glyphicon glyphicon-record" aria-hidden="true"></span>
+                                <a class="down">08 发布后</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

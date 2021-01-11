@@ -11,6 +11,9 @@ class DeplayTaskModelForm(BootstrapModelForm):
         fields = "__all__"
         exclude = ["uuid","project","status"]
 
+    # def save(self, commit=True):
+
+
 def task_list(request,project_id):
     task_obj = DeployTask.objects.filter(project_id=project_id).all()
     probj = Project.objects.get(pk=project_id)
@@ -44,7 +47,7 @@ def task_add(request,project_id):
 
             return redirect(url)
 
-    return render(request,"form.html",{"form": form,"title":title})
+    return render(request,"task_form.html",{"form": form,"title":title ,"probj": probj})
 
 def task_edit(request,project_id,task_id):
     task_obj = DeployTask.objects.get(pk=task_id)
