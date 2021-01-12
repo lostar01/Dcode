@@ -30,6 +30,8 @@ urlpatterns = [
     path('task/list/<int:project_id>',deploy.task_list,name='task_list'),
     path('task/add/<int:project_id>',deploy.task_add, name='task_add'),
     path('task/edit/<int:project_id>/<int:task_id>',deploy.task_edit, name='task_edit'),
+    path('task/del/<int:task_id>',deploy.task_del, name='task_del'),
     path('hook/template/<int:hook_id>',deploy.hook_template, name='hook_template'),
+    path('deploy/<int:task_id>',deploy.deploy_task, name='deploy'),
 
 ]

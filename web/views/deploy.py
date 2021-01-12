@@ -1,6 +1,4 @@
 import datetime
-
-from django.core.exceptions import ValidationError
 from django.shortcuts import render,reverse,redirect
 from web.models import DeployTask,Project,HookTemplate
 from web.views.base import BootstrapModelForm
@@ -55,7 +53,6 @@ class DeplayTaskModelForm(BootstrapModelForm):
         self.fields["after_deploy_select"].choices=after_deploy
 
     def save(self, commit=True):
-        self.full_clean()
         self.instance.uuid = self.create_uid()
         self.instance.project_id = self.project_obj.id
         super(DeplayTaskModelForm, self).save(commit)
@@ -90,12 +87,30 @@ class DeplayTaskModelForm(BootstrapModelForm):
         return "{0}-{1}-{2}-{3}".format(title,env,tag,date)
 
     def clean(self):
-        if self.cleaned_data.get('after_download_template'):
+        if self.cleaned_data.get('before_download_template'):
             title = self.cleaned_data.get('before_download_title')
-            print(title,"===")
             if not title:
                 self.add_error("before_download_title","请输入模板名称")
-                # raise ValidationError("请输入模板名称")
+                # raise ValidationError('请输入模板名称')
+        # return self.cleaned_data
+
+        if self.cleaned_data.get('after_download_template'):
+            title = self.cleaned_data.get('after_download_title')
+            if not title:
+                self.add_error("after_download_title","请输入模板名称")
+
+        if self.cleaned_data.get('before_deploy_template'):
+            title = self.cleaned_data.get('before_deploy_title')
+            if not title:
+                self.add_error("before_deploy_title","请输入模板名称")
+                # raise ValidationError('请输入模板名称')
+        # return self.cleaned_data
+
+        if self.cleaned_data.get('after_deploy_template'):
+            title = self.cleaned_data.get('after_deploy_title')
+            if not title:
+                self.add_error("after_deploy_title","请输入模板名称")
+
 
 
 
@@ -133,33 +148,54 @@ def task_add(request,project_id):
 
             return redirect(url)
 
+
     return render(request,"task_form.html",{"form": form,"title":title ,"probj": probj})
 
 def task_edit(request,project_id,task_id):
     task_obj = DeployTask.objects.get(pk=task_id)
+    probj = Project.objects.get(pk=project_id)
+    title = "编辑{0}".format(task_obj.uuid)
     if request.method == 'GET':
-        form = DeplayTaskModelForm(instance=task_obj)
+        form = DeplayTaskModelForm(probj,instance=task_obj)
     else:
         data = request.POST
-        form = DeplayTaskModelForm(request.POST)
+        form = DeplayTaskModelForm(probj,instance=task_obj,data=data)
         if form.is_valid():
-            task_obj.tag = data.get('tag')
-            task_obj.before_download_script = data.get("before_download_script")
-            task_obj.after_download_script = data.get("after_download_script")
-            task_obj.before_deploy_script = data.get("before_deploy_script")
-            task_obj.after_deploy_script = data.get("after_deploy_script")
-            try:
-                task_obj.save()
-            except Exception as e:
-                print(e)
+            # task_obj.tag = data.get('tag')
+            # task_obj.before_download_script = data.get("before_download_script")
+            # task_obj.after_download_script = data.get("after_download_script")
+            # task_obj.before_deploy_script = data.get("before_deploy_script")
+            # task_obj.after_deploy_script = data.get("after_deploy_script")
+            # try:
+            #     task_obj.save()
+            # except Exception as e:
+            #     print(e)
+            form.save()
             url = reverse('task_list', kwargs={"project_id": project_id})
             return redirect(url)
 
 
-    return render(request,"form.html",{"form": form })
+    return render(request,"task_form.html",{"form": form,"title":title ,"probj": probj})
+
+def task_del(request,task_id):
+    status = False
+    if request.method == 'POST':
+        try:
+            DeployTask.objects.filter(pk=task_id).delete()
+            status = True
+        except Exception as e:
+            print("删除失败")
+    res = {"status": status}
+    return JsonResponse(res)
 
 def hook_template(request,hook_id):
     # hook_obj = HookTemplate.objects.filter(pk=hook_id).first()
     hook_obj = HookTemplate.objects.get(pk=hook_id)
 
     return JsonResponse({'status':True,'content': hook_obj.content})
+
+def deploy_task(request,task_id):
+    task_obj = DeployTask.objects.get(pk=task_id)
+    title = "发布{0}".format(task_obj.uuid)
+
+    return render(request,'deploy.html',{"task_obj": task_obj,"title": title})

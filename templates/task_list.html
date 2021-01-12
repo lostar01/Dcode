@@ -14,6 +14,7 @@
                 <th>标识</th>
                 <th>版本</th>
                 <th>状态</th>
+                <th>去发布</th>
                 <th>操作</th>
             </thead>
             <tbody>
@@ -23,6 +24,7 @@
                     <th>{{ obj.uuid }}</th>
                     <th>{{ obj.tag }}</th>
                     <th>{{ obj.get_status_display }}</th>
+                    <th><span><a href="{% url 'deploy' task_id=obj.id %}">去发布</a></span></th>
                     <th><span><a href="{% url 'task_edit' project_id=probj.id task_id=obj.id %}">编辑</a></span> <span><a onclick="removeRow(this,{{obj.id}});">删除</a></span></th>
                 </tr>
             {% endfor %}
