@@ -62,3 +62,15 @@ class HookTemplate(models.Model):
         (8,'发布后')
     )
     hook_type = models.SmallIntegerField(verbose_name="钩子类型",choices=hook_choice)
+
+class Node(models.Model):
+    task = models.ForeignKey(verbose_name="发布任务单",to='DeployTask',on_delete=models.CASCADE)
+    text = models.CharField(verbose_name="节点文字", max_length=32)
+    status_choice = (
+        ('grey','待发布'),
+        ('green','成功'),
+        ('red','失败'),
+    )
+    status = models.CharField(verbose_name="状态",max_length=16,choices=status_choice)
+    parent = models.ForeignKey(verbose_name="父节点",to='self',null=True,blank=True,on_delete=models.CASCADE)
+    server = models.ForeignKey(verbose_name="服务器",to='Server',null=True,blank=True,on_delete=models.CASCADE)
