@@ -6,7 +6,7 @@
 <div class="container">
     <h1>channels 发布</h1>
     <input type="button" class="btn btn-primary" value="初始化图表" onclick="createDiagram()"/>
-    <input type="button" class="btn btn-primary" value="代码发布"/>
+    <input type="button" class="btn btn-primary" value="代码发布" onclick="initDeploy()"/>
     <table class="table table-bordered" style="margin-top: 5px;">
         <tr>
             <td>项目名称: {{task_obj.project.title}}</td>
@@ -105,11 +105,19 @@
                 if(result.code == 'init'){
                     diagram.model = new go.TreeModel(result.data);
                 }
+                else if(result.code == 'update'){
+                    var node_id = diagram.model.findNodeDataForKey(result.node_id);
+                    diagram.model.setDataProperty(node_id, "color", result.status);
+                }
             }
         }
 
         function createDiagram(){
             ws.send("init");
+        }
+
+        function initDeploy(){
+            ws.send("deploy");
         }
     </script>
 {% endblock %}
