@@ -5,7 +5,7 @@
 <script src="/static/js/go.js"></script>
 <div class="container">
     <h1>channels 发布</h1>
-    <input type="button" class="btn btn-primary" value="初始化图表" onclick="createDiagram()"/>
+<!--    <input type="button" class="btn btn-primary" value="初始化图表" onclick="createDiagram()"/>-->
     <input type="button" class="btn btn-primary" value="代码发布" onclick="initDeploy()"/>
     <table class="table table-bordered" style="margin-top: 5px;">
         <tr>
@@ -37,8 +37,11 @@
     </table>
     <div id="content" style="height: 350px; background-color: #DAE4E4">
 
-
     </div>
+    <div id="deploy" style="background-color: #E0E0E0;margin-top: 5px;white-space: pre;font-size: 12px;">
+        <p>发布过程</p>
+    </div>
+    <p style="margin-bottom: 80px;"></p>
 </div>
 {% endblock %}
 
@@ -49,6 +52,8 @@
     $(function(){
             initWebSocket();
             initDiagram();
+            setTimeout("createDiagram()","100");
+
     });
 
     function initDiagram(){
@@ -108,6 +113,11 @@
                 else if(result.code == 'update'){
                     var node_id = diagram.model.findNodeDataForKey(result.node_id);
                     diagram.model.setDataProperty(node_id, "color", result.status);
+                }
+                else if(result.code == 'deploy'){
+                    var tag = $('<div>');
+                    tag.html(result.data);
+                    $('#deploy').append(tag);
                 }
             }
         }

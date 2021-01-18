@@ -1,8 +1,14 @@
 import json
+import os
+import subprocess
+import time
 from threading import Thread
 
 from channels.generic.websocket import WebsocketConsumer, StopConsumer
 from asgiref.sync import async_to_sync
+from git import Repo
+
+from Dcode.settings import DEPLOY_DIR
 from web.models import Node, DeployTask
 
 
@@ -13,6 +19,14 @@ class DeployConsumer(WebsocketConsumer):
         self.task_id = self.scope['url_route']['kwargs'].get('task_id')  # session 参数 cookie 等大字典
         print(self.task_id)
         async_to_sync(self.channel_layer.group_add)(self.task_id, self.channel_name)
+
+        # task_obj = DeployTask.objects.get(pk=self.task_id)
+        # if task_obj.status == 3 or task_obj.status == 4:
+        #     node_qs = Node.objects.filter(task_id=self.task_id)
+        #     node_list = []
+        #     for row in node_qs:
+        #         node_list.append(row)
+        #     self.send_node_data(node_list)
 
     def websocket_receive(self, message):
         task_obj = DeployTask.objects.get(pk=self.task_id)
@@ -37,7 +51,6 @@ class DeployConsumer(WebsocketConsumer):
             # self.send(text_data=json.dumps({'code': 'init','data': node_list}))
             # 判断task 是否完成如果，完成不再初始化，否则，重新初始化节点，并返回
 
-
             node_qs = Node.objects.filter(task_id=self.task_id)
 
             if not node_qs:
@@ -60,7 +73,6 @@ class DeployConsumer(WebsocketConsumer):
 
                 node_obj_list.extend([start_node, download_node, upload_node])
 
-
                 for server in task_obj.project.server.all():
                     row = Node.objects.create(text=server.hostname,
                                               task_id=self.task_id,
@@ -68,11 +80,12 @@ class DeployConsumer(WebsocketConsumer):
                                               server=server)
                     node_obj_list.append(row)
                     if task_obj.before_deploy_script:
-                        before_deploy_node = Node.objects.create(text='发布前',server_id=server.id, task_id=self.task_id, parent=row)
+                        before_deploy_node = Node.objects.create(text='发布前', server_id=server.id, task_id=self.task_id,
+                                                                 parent=row)
                         node_obj_list.append(before_deploy_node)
 
                     if task_obj.after_deploy_script:
-                        after_deploy_node = Node.objects.create(text='发布后', server_id=server.id,task_id=self.task_id,
+                        after_deploy_node = Node.objects.create(text='发布后', server_id=server.id, task_id=self.task_id,
                                                                 parent=before_deploy_node)
                         node_obj_list.append(after_deploy_node)
 
@@ -83,77 +96,189 @@ class DeployConsumer(WebsocketConsumer):
                 for row in node_qs:
                     node_obj_list.append(row)
 
+            self.send_node_data(node_obj_list)
 
-            node_list = []
 
-            for node_obj in node_obj_list:
-                temp = {
-                    "key": str(node_obj.id),
-                    "text": str(node_obj.text),
-                    "link_color": "#666666",
-                }
-                if node_obj.parent:
-                    temp["parent"] = str(node_obj.parent_id)
-                node_list.append(temp)
-                # print(node_list,"----")
 
-            data = json.dumps({'code': 'init', 'data': node_list})
-            async_to_sync(self.channel_layer.group_send)(self.task_id, {'type': 'xxx.ooo', 'message': data})
         elif txt == 'deploy':
-            start_node = Node.objects.filter(text="开始", task_id=self.task_id).first()
-            start_node.status = "green"
-            start_node.save()
-            # data = json.dumps({'code': 'update', 'node_id': start_node.id, 'status': 'green'})
-            # async_to_sync(self.channel_layer.group_send)(self.task_id, {'type': 'xxx.ooo', 'message': data})
-            self.update_node_status(start_node.id,"green")
+            t1 = Thread(target=self.deploy, args=(task_obj,))
+            t1.start()
 
-            if task_obj.before_download_script:
-                #To do
+    def send_node_data(self, node_obj_list):
+        node_list = []
+        # print(node_obj_list)
 
-                #改变"下载前"node状态
-                before_download_node = Node.objects.filter(text='下载前',task_id=self.task_id).first()
-                self.update_node_status(before_download_node.id,"green")
+        for node_obj in node_obj_list:
+            temp = {
+                "key": str(node_obj.id),
+                "text": str(node_obj.text),
+                "link_color": str(node_obj.status),
+                "color": str(node_obj.status),
+            }
 
-            # 改变"下载"node状态
-            download_node = Node.objects.filter(text='下载',task_id=self.task_id).first()
-            self.update_node_status(download_node.id,"green")
+            if node_obj.parent:
+                temp["parent"] = str(node_obj.parent_id)
+            node_list.append(temp)
 
-            if task_obj.after_download_script:
-                #To do
+        # print(node_list,"----")
+
+        data = json.dumps({'code': 'init', 'data': node_list})
+        async_to_sync(self.channel_layer.group_send)(self.task_id, {'type': 'xxx.ooo', 'message': data})
+
+    def node_save(self, node_obj, status):
+        try:
+            node_obj.status = status
+            node_obj.save()
+        except:
+            print("发布任务单: %s %s 修改状态失败" % (self.task_id, node_obj.text))
+
+    def deploy(self, task_obj):
+        project_dir = os.path.join(DEPLOY_DIR, task_obj.uuid)
+        if not os.path.exists(project_dir):
+            os.makedirs(project_dir)
+        script_dir = os.path.join(project_dir, "scripts")
+        if not os.path.exists(script_dir):
+            os.makedirs(script_dir)
+        self.send_deploy_data("[开始]====>")
+        start_node = Node.objects.filter(text="开始", task_id=self.task_id).first()
+        self.node_save(start_node, "green")
+        # data = json.dumps({'code': 'update', 'node_id': start_node.id, 'status': 'green'})
+        # async_to_sync(self.channel_layer.group_send)(self.task_id, {'type': 'xxx.ooo', 'message': data})
+        self.update_node_status(start_node.id, "green")
+
+        if task_obj.before_download_script:
+            # To do
+            result = True
+            self.send_deploy_data("[下载前]==>")
+            # self.do_before_download_script(project_dir,script_dir)
+            if "bash" in task_obj.before_download_script[:40]:
+                s_file = os.path.join(script_dir, "before_download_script.sh")
+                with open(s_file, "w") as f:
+                    f.write(task_obj.before_download_script)
+                try:
+                    subprocess.Popen("dos2unix %s" % (s_file),
+                                     shell=True)
+                    time.sleep(0.1)
+                    before_download_script_rs = subprocess.Popen(
+                        "bash {0}".format(s_file), shell=True,
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    self.send_deploy_data(before_download_script_rs.stdout.read().decode())
+                    self.send_deploy_data(before_download_script_rs.stderr.read().decode())
+                except:
+                    self.send_deploy_data("dos2unix command maybe not install,pls check.")
+                    result = False
+            elif "python" in task_obj.before_download_script[:40]:
+                s_file = os.path.join(script_dir, "before_download_script.py")
+                with open(s_file, "w") as f:
+                    f.write(task_obj.before_download_script)
+                try:
+                    subprocess.Popen("dos2unix %s" % (s_file),
+                                     shell=True)
+
+                    before_download_script_rs = subprocess.Popen("chmod a+x {0};{1}".format(s_file,s_file),shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                    self.send_deploy_data(before_download_script_rs.stdout.read().decode())
+                    self.send_deploy_data(before_download_script_rs.stdout.read().decode())
+                except:
+                    self.send_deploy_data("dos2unix command maybe not install,pls check.")
+                    result = False
+
+            else:
+                self.send_deploy_data("task_obj_id: %s before_download_script format not correct." % (task_obj.id))
+                result = False
 
 
-                # 改变"下载后"node状态
-                after_download_node = Node.objects.filter(text='下载后',task_id=self.task_id).first()
-                self.update_node_status(after_download_node.id,"green")
+            # 改变"下载前"node状态
+            before_download_node = Node.objects.filter(text='下载前', task_id=self.task_id).first()
+            if result:
+                self.node_save(before_download_node, "green")
+                self.update_node_status(before_download_node.id, "green")
+            else:
+                self.node_save(before_download_node, "red")
+                self.update_node_status(before_download_node.id, "red")
+                return
 
-            upload_node = Node.objects.filter(text='上传',task_id=self.task_id).first()
-            self.update_node_status(upload_node.id,"green")
+        # 改变"下载"node状态
+        result = True
+        self.send_deploy_data("[下载]====>")
+        try:
+            print(task_obj.project.repo,task_obj.tag)
+            Repo.clone_from(task_obj.project.repo, to_path=os.path.join(project_dir,task_obj.project.title), branch=task_obj.tag)
+        except:
+            result = False
+            self.send_deploy_data("下载代码出错,请检查目录是否不为空，或网络是否正常")
 
-            for server in task_obj.project.server.all():
-                server_node = Node.objects.filter(text=server.hostname,task_id=self.task_id,server_id=server.id).first()
-                self.update_node_status(server_node.id,"green")
+        download_node = Node.objects.filter(text='下载', task_id=self.task_id).first()
+        if result:
+            self.node_save(download_node, "green")
+            self.update_node_status(download_node.id, "green")
+        else:
+            self.node_save(download_node, "red")
+            self.update_node_status(download_node.id, "red")
+            return
 
-                if task_obj.before_deploy_script:
-                    # To do
+        #下载后
+        if task_obj.after_download_script:
+            # To do
+            # self.do_after_download_script()
+            if "bash" in task_obj.after_download_script:
+                pass
+            # 改变"下载后"node状态
+            after_download_node = Node.objects.filter(text='下载后', task_id=self.task_id).first()
+            self.node_save(after_download_node, "green")
+            self.update_node_status(after_download_node.id, "green")
 
+        upload_node = Node.objects.filter(text='上传', task_id=self.task_id).first()
+        self.node_save(upload_node, "green")
+        self.update_node_status(upload_node.id, "green")
 
-                    before_deploy_node = Node.objects.filter(text='发布前',task_id=self.task_id,server_id=server.id).first()
-                    self.update_node_status(before_deploy_node.id,"green")
+        for server in task_obj.project.server.all():
+            server_node = Node.objects.filter(text=server.hostname, task_id=self.task_id, server_id=server.id).first()
+            self.node_save(server_node, "green")
+            self.update_node_status(server_node.id, "green")
 
-                if task_obj.after_deploy_script:
-                    #To do
+            if task_obj.before_deploy_script:
+                # To do
+                self.do_before_deploy_script()
+                before_deploy_node = Node.objects.filter(text='发布前', task_id=self.task_id, server_id=server.id).first()
+                self.node_save(before_deploy_node, "green")
+                self.update_node_status(before_deploy_node.id, "green")
 
-                    after_deploy_node = Node.objects.filter(text='发布后',task_id=self.task_id,server_id=server.id).first()
-                    self.update_node_status(after_deploy_node.id,"green")
+            if task_obj.after_deploy_script:
+                # To do
+                self.do_after_deploy_script()
+                after_deploy_node = Node.objects.filter(text='发布后', task_id=self.task_id, server_id=server.id).first()
+                self.node_save(after_deploy_node, "green")
+                self.update_node_status(after_deploy_node.id, "green")
 
+        task_obj.status = 3
+        task_obj.save()
 
     def xxx_ooo(self, message):
         data = message['message']
         self.send(data)
 
-    def update_node_status(self,node_id,status):
+    def send_deploy_data(self,result):
+        data = {'code': 'deploy',
+                'data': result
+                }
+        data = json.dumps(data)
+        async_to_sync(self.channel_layer.group_send)(self.task_id, {'type': 'xxx.ooo', 'message': data})
+
+    def update_node_status(self, node_id, status):
         data = json.dumps({'code': 'update', 'node_id': node_id, 'status': status})
         async_to_sync(self.channel_layer.group_send)(self.task_id, {'type': 'xxx.ooo', 'message': data})
+
+    def do_before_download_script(self, project_dir, script_dir):
+        pass
+
+    def do_after_download_script(self):
+        time.sleep(5)
+
+    def do_before_deploy_script(self):
+        time.sleep(5)
+
+    def do_after_deploy_script(self):
+        time.sleep(5)
 
     def websocket_disconnect(self, message):
         async_to_sync(self.channel_layer.group_discard)(self.task_id, self.channel_name)

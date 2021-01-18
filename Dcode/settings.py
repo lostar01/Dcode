@@ -132,3 +132,5 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels.layers.InMemoryChannelLayer",
     }
 }
+
+DEPLOY_DIR=os.path.join(BASE_DIR,"deploy")
