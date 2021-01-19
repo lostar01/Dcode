@@ -134,3 +134,7 @@ CHANNEL_LAYERS = {
 }
 
 DEPLOY_DIR=os.path.join(BASE_DIR,"deploy")
+#连接远程主机配置
+OPS_USER = 'root'
+SERVER_PORT = '22'
+SSH_KEY = os.path.join(BASE_DIR,os.path.basename(BASE_DIR),'ssh_key_rsa')

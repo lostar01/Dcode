@@ -4,11 +4,12 @@ import subprocess
 import time
 from threading import Thread
 
+import paramiko
 from channels.generic.websocket import WebsocketConsumer, StopConsumer
 from asgiref.sync import async_to_sync
 from git import Repo
 
-from Dcode.settings import DEPLOY_DIR
+from Dcode.settings import DEPLOY_DIR, SSH_KEY, OPS_USER, SERVER_PORT
 from web.models import Node, DeployTask
 
 
@@ -139,6 +140,9 @@ class DeployConsumer(WebsocketConsumer):
         script_dir = os.path.join(project_dir, "scripts")
         if not os.path.exists(script_dir):
             os.makedirs(script_dir)
+        release_dir = os.path.join(project_dir,"release")
+        if not os.path.exists(release_dir):
+            os.makedirs(release_dir)
         self.send_deploy_data("[开始]====>")
         start_node = Node.objects.filter(text="开始", task_id=self.task_id).first()
         self.node_save(start_node, "green")
@@ -219,39 +223,200 @@ class DeployConsumer(WebsocketConsumer):
         #下载后
         if task_obj.after_download_script:
             # To do
+            result = True
+            self.send_deploy_data("[下载后]==>")
             # self.do_after_download_script()
-            if "bash" in task_obj.after_download_script:
-                pass
+            if "bash" in task_obj.after_download_script[:40]:
+                s_file = os.path.join(script_dir,"after_download_script.sh")
+                try:
+                    with open(s_file,"w") as f:
+                        f.write(task_obj.after_download_script)
+                    subprocess.Popen("dos2unix {0}".format(s_file),shell=True)
+                    time.sleep(0.1)
+                    rs_after_download_script = subprocess.Popen("bash {0}".format(s_file),stdout=subprocess.PIPE,stderr=subprocess.PIPE,cwd=project_dir)
+                    self.send_deploy_data(rs_after_download_script.stdout.read().decode())
+                    self.send_deploy_data(rs_after_download_script.stderr.read().decode())
+                except:
+                    result = False
+                    self.send_deploy_data("请检查命令dos2unix  或者文件after_download_script.sh是否正常!")
+            elif "python" in task_obj.after_download_script[:40]:
+                s_file = os.path.join(script_dir, "after_download_script.py")
+                try:
+                    with open(s_file, "w") as f:
+                        f.write(task_obj.after_download_script)
+                    subprocess.Popen("dos2unix {0}".format(s_file), shell=True)
+                    time.sleep(0.1)
+                    rs_after_download_script = subprocess.Popen("chmod a+x {0};{1}".format(s_file,s_file), stdout=subprocess.PIPE,
+                                                                stderr=subprocess.PIPE, cwd=project_dir)
+                    self.send_deploy_data(rs_after_download_script.stdout.read().decode())
+                    self.send_deploy_data(rs_after_download_script.stderr.read().decode())
+                except:
+                    result = False
+                    self.send_deploy_data("请检查命令dos2unix  或者文件after_download_script.py是否正常!")
+            else:
+                result = False
+                self.send_deploy_data("脚本格式不正确，请在首行声明解析器")
             # 改变"下载后"node状态
             after_download_node = Node.objects.filter(text='下载后', task_id=self.task_id).first()
-            self.node_save(after_download_node, "green")
-            self.update_node_status(after_download_node.id, "green")
+            if result:
+                self.node_save(after_download_node, "green")
+                self.update_node_status(after_download_node.id, "green")
+            else:
+                self.node_save(after_download_node, "red")
+                self.update_node_status(after_download_node.id, "red")
+                return
 
+        #上传
+        result = True
+        self.send_deploy_data("[上传]====>")
+        try:
+            tar_cmd = "tar -czf release-{0}.tar.gz {1}".format(task_obj.project.title, release_dir)
+            subprocess.Popen(tar_cmd,shell=True)
+        except:
+            self.send_deploy_data("打包release 文件失败，请检查！")
+            result = False
         upload_node = Node.objects.filter(text='上传', task_id=self.task_id).first()
-        self.node_save(upload_node, "green")
-        self.update_node_status(upload_node.id, "green")
+        if result:
+            self.node_save(upload_node, "green")
+            self.update_node_status(upload_node.id, "green")
+        else:
+            self.node_save(upload_node, "red")
+            self.update_node_status(upload_node.id, "red")
+            return
 
+        local_file = os.path.join(project_dir,"release-{0}.tar.gz".format(task_obj.project.title))
         for server in task_obj.project.server.all():
-            server_node = Node.objects.filter(text=server.hostname, task_id=self.task_id, server_id=server.id).first()
-            self.node_save(server_node, "green")
-            self.update_node_status(server_node.id, "green")
+            self.send_deploy_data("上传服务器 %s" %(server))
+            rs_upload = self.upload_release_file(local_file,server,task_obj)
+            server_node = Node.objects.filter(text=server.hostname, task_id=self.task_id,
+                                              server_id=server.id).first()
+            if rs_upload:
+                self.send_deploy_data("上传服务器 %s 完成" % (server))
+                self.node_save(server_node, "green")
+                self.update_node_status(server_node.id, "green")
+            else:
+                self.send_deploy_data("上传服务器 %s 失败" % (server))
+                self.node_save(server_node, "red")
+                self.update_node_status(server_node.id, "red")
+                continue
 
+            #发布前
             if task_obj.before_deploy_script:
                 # To do
-                self.do_before_deploy_script()
+                rs_pre_deploy = True
+                if "bash" in task_obj.before_deploy_script[:40]:
+                    try:
+                        s_file = os.path.join(script_dir,"before_deploy_script.sh")
+                        with open(s_file,"w") as f:
+                            f.write(task_obj.before_deploy_script)
+                        subprocess.Popen("dos2unix {0}".format(s_file),shell=True)
+                        time.sleep(0.1)
+                        rs_before_deploy_script = subprocess.Popen("bash {0}".format(s_file),shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                        self.send_deploy_data(rs_before_deploy_script.stdout.read().decode())
+                        self.send_deploy_data(rs_before_deploy_script.stderr.read().decode())
+                    except:
+                        rs_pre_deploy = False
+                        self.send_deploy_data("请检查命令dos2unix  或者文件before_deploy_script.sh是否正常!")
+                        
+
+                elif "python" in task_obj.before_deploy_script[:40]:
+                    try:
+                        s_file = os.path.join(script_dir,"before_deploy_script.py")
+                        with open(s_file,"w") as f:
+                            f.write(task_obj.before_deploy_script)
+                        subprocess.Popen("dos2unix {0}".format(s_file))
+                        time.sleep(0.1)
+                        rs_before_deploy_script = subprocess.Popen("chmod a+x {0};{1}".format(s_file,s_file))
+                        self.send_deploy_data(rs_before_deploy_script.stdout.read().decode())
+                        self.send_deploy_data(rs_before_deploy_script.stderr.read().decode())
+                    except:
+                        rs_pre_deploy = False
+                        self.send_deploy_data("请检查命令dos2unix  或者文件before_deploy_script.py是否正常!")
+                else:
+                    rs_pre_deploy = False
+                    self.send_deploy_data("脚本格式不正确，请在首行声明解析器")
+
+
                 before_deploy_node = Node.objects.filter(text='发布前', task_id=self.task_id, server_id=server.id).first()
-                self.node_save(before_deploy_node, "green")
-                self.update_node_status(before_deploy_node.id, "green")
+                if rs_pre_deploy:
+                    self.node_save(before_deploy_node, "green")
+                    self.update_node_status(before_deploy_node.id, "green")
+                else:
+                    self.node_save(before_deploy_node, "red")
+                    self.update_node_status(before_deploy_node.id, "red")
+                    continue
 
             if task_obj.after_deploy_script:
                 # To do
-                self.do_after_deploy_script()
-                after_deploy_node = Node.objects.filter(text='发布后', task_id=self.task_id, server_id=server.id).first()
-                self.node_save(after_deploy_node, "green")
-                self.update_node_status(after_deploy_node.id, "green")
 
-        task_obj.status = 3
+                rs_after_deploy = True
+                if "bash" in task_obj.after_deploy_script[:40]:
+                    try:
+                        s_file = os.path.join(script_dir, "after_deploy_script.sh")
+                        with open(s_file, "w") as f:
+                            f.write(task_obj.after_deploy_script)
+                        subprocess.Popen("dos2unix {0}".format(s_file), shell=True)
+                        time.sleep(0.1)
+                        rs_after_deploy_script = subprocess.Popen("bash {0}".format(s_file), shell=True,
+                                                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        self.send_deploy_data(rs_after_deploy_script.stdout.read().decode())
+                        self.send_deploy_data(rs_after_deploy_script.stderr.read().decode())
+                    except:
+                        rs_after_deploy = False
+                        self.send_deploy_data("请检查命令dos2unix  或者文件after_deploy_script.sh是否正常!")
+
+                elif "python" in task_obj.after_deploy_script[:40]:
+                    try:
+                        s_file = os.path.join(script_dir, "after_deploy_script.py")
+                        with open(s_file, "w") as f:
+                            f.write(task_obj.before_deploy_script)
+                        subprocess.Popen("dos2unix {0}".format(s_file))
+                        time.sleep(0.1)
+                        rs_after_deploy_script = subprocess.Popen("chmod a+x {0};{1}".format(s_file, s_file))
+                        self.send_deploy_data(rs_after_deploy_script.stdout.read().decode())
+                        self.send_deploy_data(rs_after_deploy_script.stderr.read().decode())
+                    except:
+                        rs_after_deploy = False
+                        self.send_deploy_data("请检查命令dos2unix  或者文件before_deploy_script.py是否正常!")
+                else:
+                    rs_after_deploy = False
+                    self.send_deploy_data("脚本格式不正确，请在首行声明解析器")
+
+                after_deploy_node = Node.objects.filter(text='发布后', task_id=self.task_id, server_id=server.id).first()
+                if rs_after_deploy:
+                    self.node_save(after_deploy_node, "green")
+                    self.update_node_status(after_deploy_node.id, "green")
+                else:
+                    self.node_save(after_deploy_node, "red")
+                    self.update_node_status(after_deploy_node.id, "red")
+                    continue
+        if rs_upload & rs_pre_deploy & rs_after_deploy:
+            task_obj.status = 3
+            self.send_deploy_data("[发布完成] 成功完成，没有出现错误！")
+        else:
+            task_obj.status = 4
+            self.send_deploy_data("[发布完成] 出现错误,请检查！")
         task_obj.save()
+
+
+    def upload_release_file(self,local_file,server,task_obj,port=SERVER_PORT):
+        #指定本地私钥
+        rs = True
+        try:
+            pkey = paramiko.RSAKey.from_private_key_file(SSH_KEY)
+            #建立连接
+            trans = paramiko.Transport((server,port))
+            trans.connect(username=OPS_USER,pkey=pkey)
+            sftp = paramiko.SFTPClient.from_transport(trans)
+            #发送文件
+            sftp.put(localpath=local_file,remotepath=task_obj.project.path)
+            #下载数据
+            # sftp.get(remotepath=local_file,localpath=local_file)
+        except:
+            rs = False
+        return rs
+
+
 
     def xxx_ooo(self, message):
         data = message['message']
@@ -268,17 +433,6 @@ class DeployConsumer(WebsocketConsumer):
         data = json.dumps({'code': 'update', 'node_id': node_id, 'status': status})
         async_to_sync(self.channel_layer.group_send)(self.task_id, {'type': 'xxx.ooo', 'message': data})
 
-    def do_before_download_script(self, project_dir, script_dir):
-        pass
-
-    def do_after_download_script(self):
-        time.sleep(5)
-
-    def do_before_deploy_script(self):
-        time.sleep(5)
-
-    def do_after_deploy_script(self):
-        time.sleep(5)
 
     def websocket_disconnect(self, message):
         async_to_sync(self.channel_layer.group_discard)(self.task_id, self.channel_name)
