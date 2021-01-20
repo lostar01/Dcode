@@ -15,7 +15,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from web.views import server,project,deploy
+from web.views import server,project,deploy,manager
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -33,5 +33,6 @@ urlpatterns = [
     path('task/del/<int:task_id>',deploy.task_del, name='task_del'),
     path('hook/template/<int:hook_id>',deploy.hook_template, name='hook_template'),
     path('deploy/<int:task_id>',deploy.deploy_task, name='deploy'),
+    path('login/',manager.ac_login,name='login'),
 
 ]

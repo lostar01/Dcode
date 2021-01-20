@@ -22,18 +22,18 @@
             <tbody>
             {% for obj in project_obj %}
                 <tr>
-                    <th>{{ obj.id }}</th>
-                    <th>{{ obj.title }}</th>
-                    <th>{{ obj.repo }}</th>
-                    <th>{{ obj.env }}</th>
-                    <th>{{ obj.path }}</th>
-                    <th>
+                    <th class="col-md-1">{{ obj.id }}</th>
+                    <th class="col-md-1">{{ obj.title }}</th>
+                    <th class="col-md-3">{{ obj.repo }}</th>
+                    <th class="col-md-1">{{ obj.env }}</th>
+                    <th class="col-md-1">{{ obj.path }}</th>
+                    <th class="col-md-3">
                         {% for item in obj.server.all %}
                             <span style="border: 1px solid #ddd; padding: 5px;">{{ item }}</span>
                         {% endfor %}
                     </th>
-                    <th><a href="{% url 'task_list' project_id=obj.id %}">发布任务</a></th>
-                    <th><span><a href="{% url 'project_edit' pk=obj.id %}">编辑</a></span> <span><a onclick="removeRow(this,{{obj.id}});">删除</a></span></th>
+                    <th class="col-md-1"><a href="{% url 'task_list' project_id=obj.id %}">发布任务</a></th>
+                    <th class="col-md-1"><span><a href="{% url 'project_edit' pk=obj.id %}">编辑</a></span> <span><a onclick="removeRow(this,{{obj.id}});">删除</a></span></th>
                 </tr>
             {% endfor %}
             </tbody>

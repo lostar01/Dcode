@@ -6,7 +6,9 @@
 <div class="container">
     <h1>channels 发布</h1>
 <!--    <input type="button" class="btn btn-primary" value="初始化图表" onclick="createDiagram()"/>-->
+    <a href="{% url 'task_edit' project_id=task_obj.project_id task_id=task_obj.id %}"><input type="button" class="btn btn-primary" value="编  辑"></a>
     <input type="button" class="btn btn-primary" value="代码发布" onclick="initDeploy()"/>
+
     <table class="table table-bordered" style="margin-top: 5px;">
         <tr>
             <td>项目名称: {{task_obj.project.title}}</td>
@@ -38,7 +40,7 @@
     <div id="content" style="height: 350px; background-color: #DAE4E4">
 
     </div>
-    <div id="deploy" style="background-color: #E0E0E0;margin-top: 5px;white-space: pre;font-size: 12px;">
+    <div id="deploy" style="background-color: #E0E0E0;margin-top: 5px;white-space: pre;font-size: 12px;overflow: auto;">
         <p>发布过程</p>
     </div>
     <p style="margin-bottom: 80px;"></p>

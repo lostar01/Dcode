@@ -59,3 +59,6 @@ def project_del(request,pk):
             print("删除失败")
     res = {"status": status }
     return JsonResponse(res)
+
+def loading(request):
+    return render(request,'loading.html')
