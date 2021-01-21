@@ -1,6 +1,7 @@
 from django.shortcuts import render,redirect
 from django.http import JsonResponse
 from web.models import Project
+from django.contrib.auth.decorators import login_required
 
 from web.views.base import BootstrapModelForm
 
@@ -14,11 +15,12 @@ class ProjectModelForm(BootstrapModelForm):
         fields = "__all__"
 
 
-
+@login_required
 def project_list(request):
     project_obj = Project.objects.all()
     return render(request,'project_list.html',locals())
 
+@login_required
 def project_add(request):
     title = "添加项目"
     if request.method == 'GET':
@@ -35,6 +37,7 @@ def project_add(request):
 
     return render(request,'form.html',{"form": form,"title": title})
 
+@login_required
 def project_edit(request,pk):
     title = "编辑项目"
     # server_obj = Server.objects.filter(pk=pk).first()
@@ -49,6 +52,7 @@ def project_edit(request,pk):
             return redirect('project_list')
     return render(request, 'form.html', {"form": form,"title": title})
 
+@login_required
 def project_del(request,pk):
     status = False
     if request.method == 'POST':

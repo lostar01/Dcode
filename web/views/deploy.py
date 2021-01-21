@@ -4,7 +4,7 @@ from web.models import DeployTask,Project,HookTemplate
 from web.views.base import BootstrapModelForm
 from django import forms
 from django.http import JsonResponse
-import uuid
+from django.contrib.auth.decorators import login_required
 
 
 class DeplayTaskModelForm(BootstrapModelForm):
@@ -113,14 +113,14 @@ class DeplayTaskModelForm(BootstrapModelForm):
 
 
 
-
+@login_required
 def task_list(request,project_id):
     task_obj = DeployTask.objects.filter(project_id=project_id).all()
     probj = Project.objects.get(pk=project_id)
     title = "发布单任务单:" + probj.title + " " + probj.get_env_display()
     return render(request,'task_list.html',{"task_obj": task_obj,"title": title,"probj": probj })
 
-
+@login_required
 def task_add(request,project_id):
     probj = Project.objects.get(pk=project_id)
     title = "添加发布单任务单:" + probj.title + " " + probj.get_env_display()
@@ -151,6 +151,7 @@ def task_add(request,project_id):
 
     return render(request,"task_form.html",{"form": form,"title":title ,"probj": probj})
 
+@login_required
 def task_edit(request,project_id,task_id):
     task_obj = DeployTask.objects.get(pk=task_id)
     probj = Project.objects.get(pk=project_id)
@@ -177,6 +178,7 @@ def task_edit(request,project_id,task_id):
 
     return render(request,"task_form.html",{"form": form,"title":title ,"probj": probj})
 
+@login_required
 def task_del(request,task_id):
     status = False
     if request.method == 'POST':
@@ -188,12 +190,14 @@ def task_del(request,task_id):
     res = {"status": status}
     return JsonResponse(res)
 
+@login_required
 def hook_template(request,hook_id):
     # hook_obj = HookTemplate.objects.filter(pk=hook_id).first()
     hook_obj = HookTemplate.objects.get(pk=hook_id)
 
     return JsonResponse({'status':True,'content': hook_obj.content})
 
+@login_required
 def deploy_task(request,task_id):
     task_obj = DeployTask.objects.get(pk=task_id)
     title = "发布{0}".format(task_obj.uuid)

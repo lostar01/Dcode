@@ -1,7 +1,7 @@
 from django.shortcuts import render,redirect
 from django.http import JsonResponse
 from web.models import Server
-
+from django.contrib.auth.decorators import login_required
 from web.views.base import BootstrapModelForm
 
 # 为了做表单验证，引入ModelForm 的功能
@@ -15,11 +15,12 @@ class ServerModelForm(BootstrapModelForm):
         # exclude = ['notices']
 
 
-
+@login_required
 def server_list(request):
     server_obj = Server.objects.all()
     return render(request,'server_list.html',locals())
 
+@login_required
 def server_add(request):
     title = "添加服务器"
     if request.method == 'GET':
@@ -35,6 +36,7 @@ def server_add(request):
 
     return render(request,'form.html',{"form": form,"title":title})
 
+@login_required
 def server_edit(request,pk):
     title = "编辑服务器"
     # server_obj = Server.objects.filter(pk=pk).first()
@@ -48,6 +50,7 @@ def server_edit(request,pk):
             return redirect('server_list')
     return render(request, 'form.html', {"form": form,"title": title})
 
+@login_required
 def server_del(request,pk):
     status = False
     if request.method == 'POST':

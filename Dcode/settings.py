@@ -138,3 +138,6 @@ DEPLOY_DIR=os.path.join(BASE_DIR,"deploy")
 OPS_USER = 'root'
 SERVER_PORT = 22
 SSH_KEY = os.path.join(BASE_DIR,os.path.basename(BASE_DIR),'ssh_key_rsa')
+
+#配置登录URL
+LOGIN_URL = '/login/'

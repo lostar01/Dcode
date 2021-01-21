@@ -34,5 +34,6 @@ urlpatterns = [
     path('hook/template/<int:hook_id>',deploy.hook_template, name='hook_template'),
     path('deploy/<int:task_id>',deploy.deploy_task, name='deploy'),
     path('login/',manager.ac_login,name='login'),
+    path('logout/',manager.ac_logout,name='loginout')
 
 ]
